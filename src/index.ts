@@ -167,7 +167,7 @@ app.post("/callback", async ({ request }) => {
       const replicas = statefulSet.spec.replicas;
       console.log(replicas);
       if (replicas === 0) {
-        await appApi.patchNamespacedStatefulSet(statefulSet.metadata.name, statefulSet.metadata.namespace, [{op: "replace", path: "/spec/replicas", value: 1}]);
+        await appApi.patchNamespacedStatefulSetScale(statefulSet.metadata.name, statefulSet.metadata.namespace, [{ op: 'replace', path: '/spec/replicas', value: 1 }], undefined, undefined, undefined, undefined, undefined, { headers: { 'Content-Type': 'application/json-patch+json' } });
         console.log("Scaled up deployment");
       } else {
         console.log("No change");
