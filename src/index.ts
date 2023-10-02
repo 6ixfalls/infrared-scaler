@@ -52,13 +52,15 @@ async function updateService(obj: k8s.V1Service) {
   }
 
   const configId = encodeURIComponent(`${config.configPath}${obj.metadata.name}-${obj.metadata.namespace}.yml`);
-
+  const bodyObject = {java: {servers: {}}};
+  bodyObject.java.servers[configId] = builtConfig;
+  
   const res = await fetch(`${config.infraredUrl}/configs/${configId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(builtConfig),
+    body: JSON.stringify(bodyObject),
   });
 
   if (!res.ok) {
