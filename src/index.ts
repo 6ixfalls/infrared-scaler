@@ -161,15 +161,13 @@ app.post("/callback", async ({ request }) => {
       //}
   
       const linkedServer = localServerMap[message.data.server.serverId];
-      console.log("ls", linkedServer);
       if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name) return console.log("Missing metadata");
       const statefulSet = statefulSetMap[linkedServer.service.metadata.name];
-      console.log("ss", statefulSet);
       if (!statefulSet || !statefulSet.spec || !statefulSet.metadata || !statefulSet.metadata.name || !statefulSet.metadata.namespace) return console.log("Missing statefulSet");
       const replicas = statefulSet.spec.replicas;
       console.log(replicas);
       if (replicas === 0) {
-        await appApi.patchNamespacedStatefulSetScale(statefulSet.metadata.name, statefulSet.metadata.namespace, [{op: "replace", path: "/spec/replicas", value: 1}]);
+        await appApi.patchNamespacedStatefulSet(statefulSet.metadata.name, statefulSet.metadata.namespace, [{op: "replace", path: "/spec/replicas", value: 1}]);
         console.log("Scaled up deployment");
       } else {
         console.log("No change");
