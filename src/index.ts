@@ -9,7 +9,7 @@ const config = {
   watchNamespace: process.env.WATCH_NAMESPACE || "default",
   annotationPrefix: process.env.ANNOTATION_PREFIX || "infrared-scaler.sixfal.ls",
   infraredUrl: process.env.INFRARED_URL || "http://infrared:8080",
-  offlineStatus: JSON.parse(process.env.OFFLINE_STATUS || `{ maxPlayers: 10, playersOnline: 0, motd: "\u00A78This server is asleep. Connect to start." }`),
+  offlineStatus: JSON.parse(process.env.OFFLINE_STATUS || `{ "maxPlayers": 10, "playersOnline": 0, "motd": "\u00A78This server is asleep. Connect to start." }`),
   serverUrl: process.env.SCALER_URL || "http://infrared-scaler:3000",
 }
 
