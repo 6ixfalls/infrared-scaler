@@ -95,6 +95,8 @@ informer.on("error", (err) => {
 
 const app = new Elysia();
 
+app.onParse(({ request }) => JSON.parse(request.text()));
+
 app.post("/callback", ({ body }) => {
   console.log(body);
   return "ok";
