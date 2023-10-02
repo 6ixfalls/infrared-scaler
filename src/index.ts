@@ -122,10 +122,12 @@ const app = new Elysia();
 
 app.post("/callback", async ({ request }) => {
   const message = JSON.parse(await request.text());
+  console.log(message.topics[0], message.data);
   if (message.topics[0] === "PrePlayerJoin") {
     if (message.data.isLoginRequest !== true) return;
 
     const status = <NewPingResult>await mc.ping(message.data.server.serverAddress);
+    console.log(status);
     if (status.version.protocol !== 0) {
       return; // already up
     }
