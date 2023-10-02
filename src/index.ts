@@ -11,12 +11,12 @@ const config = {
   infraredUrl: process.env.INFRARED_URL || "http://infrared:8080",
   offlineStatus: JSON.parse(process.env.OFFLINE_STATUS || `{ "maxPlayers": 10, "playersOnline": 0, "motd": "\u00A78This server is asleep. Connect to start." }`),
   serverUrl: process.env.SCALER_URL || "http://infrared-scaler:3000",
+  configPath: process.env.CONFIG_PATH || "/config/proxies/"
 }
 
 const informer = k8s.makeInformer(kc, "/api/v1/services", () => k8sApi.listNamespacedService(config.watchNamespace));
 
 async function updateService(obj: k8s.V1Service) {
-  console.log(obj.metadata);
   if (!obj.metadata || !obj.metadata.annotations) {
     console.error("No metadata or annotations found");
     return;
@@ -50,10 +50,10 @@ async function updateService(obj: k8s.V1Service) {
   }
 
   if (!builtConfig.domainName) {
-    return console.log(obj.metadata.annotations); // No domain name, no need to process
+    return; // No domain name, no need to process
   }
 
-  const configId = encodeURIComponent(`${obj.metadata.name}-${obj.metadata.namespace}`);
+  const configId = encodeURIComponent(`${configPath}${obj.metadata.name}-${obj.metadata.namespace}.yml`);
 
   const res = await fetch(`${config.infraredUrl}/configs/${configId}`, {
     method: "PUT",
