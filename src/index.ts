@@ -167,7 +167,12 @@ app.post("/callback", async ({ request }) => {
       const replicas = statefulSet.spec.replicas;
       console.log(replicas);
       if (replicas === 0) {
-        await appApi.patchNamespacedStatefulSetScale(statefulSet.metadata.name, statefulSet.metadata.namespace, { spec: { replicas: 1 } }).then(console.log).catch((e) => console.log("fail: ", e.statusCode, e.body));
+        await appApi.patchNamespacedStatefulSetScale(statefulSet.metadata.name, statefulSet.metadata.namespace, { spec: { replicas: 1 } }, undefined, undefined, undefined, undefined, undefined, {
+          headers: {
+            'Content-Type': 'application/merge-patch+json',
+            'Accept': 'application/json, */*',
+          },
+        }).then(console.log).catch((e) => console.log("fail: ", e.statusCode, e.body));
         console.log("Scaled up deployment");
       } else {
         console.log("No change");
