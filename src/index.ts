@@ -149,30 +149,34 @@ statefulSetInformer.start();
 const app = new Elysia();
 
 app.post("/callback", async ({ request }) => {
-  const message = JSON.parse(await request.text());
-  if (message.topics[0] === "PrePlayerJoin") {
-    if (message.data.isLoginRequest !== true) return;
-    
-    //const status: NewPingResult = await mc.ping(message.data.server.serverAddress);
-    //console.log(status);
-    //if (status.version.protocol !== 0) {
-    //  return; // already up
-    //}
-
-    const linkedServer = localServerMap[message.server.serverId];
-    console.log("ls", linkedServer);
-    if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name) return console.log("Missing metadata");
-    const statefulSet = statefulSetMap[linkedServer.service.metadata.name];
-    console.log("ss", statefulSet);
-    if (!statefulSet || !statefulSet.spec || !statefulSet.metadata || !statefulSet.metadata.name || !statefulSet.metadata.namespace) return console.log("Missing statefulSet");
-    const replicas = statefulSet.spec.replicas;
-    console.log(replicas);
-    if (replicas === 0) {
-      await appApi.patchNamespacedStatefulSetScale(statefulSet.metadata.name, statefulSet.metadata.namespace, [{op: "replace", path: "/spec/replicas", value: 1}]);
-      console.log("Scaled up deployment");
-    } else {
-      console.log("No change");
+  try {
+    const message = JSON.parse(await request.text());
+    if (message.topics[0] === "PrePlayerJoin") {
+      if (message.data.isLoginRequest !== true) return;
+      
+      //const status: NewPingResult = await mc.ping(message.data.server.serverAddress);
+      //console.log(status);
+      //if (status.version.protocol !== 0) {
+      //  return; // already up
+      //}
+  
+      const linkedServer = localServerMap[message.data.server.serverId];
+      console.log("ls", linkedServer);
+      if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name) return console.log("Missing metadata");
+      const statefulSet = statefulSetMap[linkedServer.service.metadata.name];
+      console.log("ss", statefulSet);
+      if (!statefulSet || !statefulSet.spec || !statefulSet.metadata || !statefulSet.metadata.name || !statefulSet.metadata.namespace) return console.log("Missing statefulSet");
+      const replicas = statefulSet.spec.replicas;
+      console.log(replicas);
+      if (replicas === 0) {
+        await appApi.patchNamespacedStatefulSetScale(statefulSet.metadata.name, statefulSet.metadata.namespace, [{op: "replace", path: "/spec/replicas", value: 1}]);
+        console.log("Scaled up deployment");
+      } else {
+        console.log("No change");
+      }
     }
+  } catch (e) {
+    console.error(e);
   }
   return "ok";
 });
