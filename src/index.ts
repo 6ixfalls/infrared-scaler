@@ -124,9 +124,11 @@ app.post("/callback", async ({ request }) => {
   const message = JSON.parse(await request.text());
   console.log(message.topics[0] === "PrePlayerJoin", message.data.isLoginRequest, message.data.server.serverAddress);
   if (message.topics[0] === "PrePlayerJoin") {
+    console.log("PrePlayerJoin");
     if (message.data.isLoginRequest !== true) return;
 
-    const status = <NewPingResult>await mc.ping(message.data.server.serverAddress);
+    console.log("Checking status of: " + message.data.server.serverAddress);
+    const status: NewPingResult = await mc.ping(message.data.server.serverAddress);
     console.log(status);
     if (status.version.protocol !== 0) {
       return; // already up
