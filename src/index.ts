@@ -122,7 +122,7 @@ const app = new Elysia();
 
 app.post("/callback", async ({ request }) => {
   const message = JSON.parse(await request.text());
-  console.log(message.topics[0], message.data);
+  console.log(message.topics[0] === "PrePlayerJoin", message.data.isLoginRequest, message.data.server.serverAddress);
   if (message.topics[0] === "PrePlayerJoin") {
     if (message.data.isLoginRequest !== true) return;
 
