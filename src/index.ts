@@ -123,10 +123,8 @@ const app = new Elysia();
 app.post("/callback", async ({ request }) => {
   const message = JSON.parse(await request.text());
   if (message.topics[0] === "PrePlayerJoin") {
-    console.log("PrePlayerJoin");
     if (message.data.isLoginRequest !== true) return;
-
-    console.log("Checking status of: " + message.data.server.serverAddress);
+    
     //const status: NewPingResult = await mc.ping(message.data.server.serverAddress);
     //console.log(status);
     //if (status.version.protocol !== 0) {
@@ -137,19 +135,24 @@ app.post("/callback", async ({ request }) => {
     if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name || !linkedServer.service.metadata.namespace) {
       return console.log("Missing metadata");
     }
+    console.log(linkedServer);
     const {body: endpoint} = await k8sApi.readNamespacedEndpoints(linkedServer.service.metadata.name, linkedServer.service.metadata.namespace);
+    console.log(endpoint);
     const subset = endpoint.subsets && endpoint.subsets[0];
     if (!subset) return console.log("Missing subsets");
     const address = subset.addresses && subset.addresses[0];
     if (!address || !address.targetRef || !address.targetRef.name || !address.targetRef.namespace) return console.log("Missing address");
+    console.log(subset, address);
     const {body: pod} = await k8sApi.readNamespacedPod(address.targetRef.name, address.targetRef.namespace);
     const ownerReference = pod.metadata?.ownerReferences && pod.metadata.ownerReferences[0];
     if (!ownerReference) return console.log("Missing pod owner reference");
     if (ownerReference.kind !== "ReplicaSet") return console.log("infrared-scaler only supports ReplicaSets for scaling for now.");
+    console.log(pod, ownerReference);
     const {body: controller} = await appApi.readNamespacedReplicaSet(ownerReference.name, address.targetRef.namespace);
     if (!controller.metadata?.ownerReferences || controller.metadata.ownerReferences[0].kind !== "StatefulSet") return console.log("Invalid replicaSet owner reference");
     const statefulSet = controller.metadata.ownerReferences[0];
     const replicas = controller.spec?.replicas;
+    console.log(statefulSet, replicas);
     if (replicas === 0) {
       await appApi.patchNamespacedStatefulSetScale(statefulSet.name, controller.metadata.namespace!, [{op: "replace", path: "/spec/replicas", value: 1}]);
       console.log("Scaled up deployment");
