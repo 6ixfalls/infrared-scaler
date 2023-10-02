@@ -1,0 +1,17 @@
+{
+  "name": "infrared-scaler",
+  "version": "1.0.50",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "bun run --watch src/index.ts"
+  },
+  "dependencies": {
+    "@kubernetes/client-node": "^0.19.0",
+    "elysia": "latest",
+    "minecraft-protocol": "^1.44.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "module": "src/index.js"
+}
