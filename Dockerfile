@@ -6,3 +6,5 @@ COPY bun.lockb ./
 RUN bun install
 
 COPY . .
+
+CMD ["run", "src/index.ts"]
