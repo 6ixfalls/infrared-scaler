@@ -31,12 +31,13 @@ async function updateService(obj: k8s.V1Service) {
     return;
   }
 
+  const domain = obj.metadata.annotations[`${config.annotationPrefix}/domainName`];
   const builtConfig = {
-    domains: [obj.metadata.annotations[`${config.annotationPrefix}/domainName`]],
+    domains: [domain],
     address: `${obj.metadata.name}.${obj.metadata.namespace}:${targetPort.targetPort || targetPort.port}`
   }
 
-  if (!builtConfig.domainName) {
+  if (!domain) {
     return; // No domain name, no need to process
   }
 
