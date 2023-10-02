@@ -32,28 +32,18 @@ async function updateService(obj: k8s.V1Service) {
   }
 
   const builtConfig = {
-    domainName: obj.metadata.annotations[`${config.annotationPrefix}/domainName`],
-    proxyTo: `${obj.metadata.name}.${obj.metadata.namespace}:${targetPort.targetPort || targetPort.port}`,
-    callbackServer: {
-      url: `${config.serverUrl}/callback`,
-      events: [
-        "AcceptedConn",
-        "PreProcessing",
-        "PostProcessing",
-        "PrePlayerJoin",
-        "PlayerJoin",
-        "PlayerLeave"
-      ]
-    }
+    domains: [obj.metadata.annotations[`${config.annotationPrefix}/domainName`]],
+    address: `${obj.metadata.name}.${obj.metadata.namespace}:${targetPort.targetPort || targetPort.port}`
   }
 
   if (!builtConfig.domainName) {
     return; // No domain name, no need to process
   }
 
-  const configId = encodeURIComponent(`${config.configPath}${obj.metadata.name}-${obj.metadata.namespace}.yml`);
+  const key = `${obj.metadata.name}-${obj.metadata.namespace}`;
+  const configId = encodeURIComponent(`${config.configPath}${key}.yml`);
   const bodyObject = {java: {servers: {}}};
-  bodyObject.java.servers[configId] = builtConfig;
+  bodyObject.java.servers[key] = builtConfig;
   
   const res = await fetch(`${config.infraredUrl}/configs/${configId}`, {
     method: "PUT",
