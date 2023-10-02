@@ -16,6 +16,7 @@ const config = {
 const informer = k8s.makeInformer(kc, "/api/v1/services", () => k8sApi.listNamespacedService(config.watchNamespace));
 
 async function updateService(obj: k8s.V1Service) {
+  console.log(obj.metadata);
   if (!obj.metadata || !obj.metadata.annotations) {
     console.error("No metadata or annotations found");
     return;
