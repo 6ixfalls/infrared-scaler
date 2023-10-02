@@ -34,7 +34,8 @@ async function updateService(obj: k8s.V1Service) {
   const domain = obj.metadata.annotations[`${config.annotationPrefix}/domainName`];
   const builtConfig = {
     domains: [domain],
-    address: `${obj.metadata.name}.${obj.metadata.namespace}:${targetPort.targetPort || targetPort.port}`
+    address: `${obj.metadata.name}.${obj.metadata.namespace}:${targetPort.targetPort || targetPort.port}`,
+    gateways: ["default"]
   }
 
   if (!domain) {
