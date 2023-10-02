@@ -18,7 +18,9 @@ const config = {
 interface ServerConfig {domains: string[], address: string, gateways: string[], service?: k8s.V1Service};
 
 const informer = k8s.makeInformer(kc, "/api/v1/services", () => k8sApi.listNamespacedService(config.watchNamespace));
+const statefulSetInformer = k8s.makeInformer(kc, "/apis/apps/v1/statefulsets", () => appApi.listNamespacedStatefulSet(config.watchNamespace));
 const localServerMap: {[key: string]: ServerConfig} = {};
+const statefulSetMap: {[serviceName: string]: k8s.V1StatefulSet} = {};
 
 async function updateService(obj: k8s.V1Service) {
   if (!obj.metadata || !obj.metadata.annotations) {
@@ -118,6 +120,32 @@ informer.on("error", (err) => {
   }, 10000);
 });
 
+function updateStatefulSet(statefulSet: k8s.V1StatefulSet) {
+  if (!statefulSet.spec || !statefulSet.spec.serviceName) {
+    return console.log("StatefulSet missing spec");
+  }
+  statefulSetMap[statefulSet.spec.serviceName] = statefulSet;
+}
+
+statefulSetInformer.on("delete", function(statefulSet) {
+  if (!statefulSet.spec || !statefulSet.spec.serviceName) {
+    return console.log("StatefulSet missing spec");
+  }
+  delete statefulSetMap[statefulSet.spec.serviceName];
+})
+
+statefulSetInformer.on("add", updateStatefulSet);
+statefulSetInformer.on("update", updateStatefulSet);
+
+statefulSetInformer.on("error", (err) => {
+  console.error(err);
+  setTimeout(() => {
+    statefulSetInformer.start();
+  }, 10000);
+});
+
+statefulSetInformer.start();
+
 const app = new Elysia();
 
 app.post("/callback", async ({ request }) => {
@@ -131,30 +159,15 @@ app.post("/callback", async ({ request }) => {
     //  return; // already up
     //}
 
-    const linkedServer = localServerMap[message.data.server.serverId];
-    if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name || !linkedServer.service.metadata.namespace) {
+    const linkedServer = localServerMap[message.server.serverId];
+    if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name) {
       return console.log("Missing metadata");
     }
-    console.log("checking endpoints " + linkedServer.service.metadata.name + linkedServer.service.metadata.namespace);
-    const {body: endpoint} = await k8sApi.readNamespacedEndpoints(linkedServer.service.metadata.name, linkedServer.service.metadata.namespace);
-    const subset = endpoint.subsets && endpoint.subsets[0];
-    console.log(subset);
-    if (!subset) return console.log("Missing subsets");
-    const address = subset.addresses && subset.addresses[0];
-    if (!address || !address.targetRef || !address.targetRef.name || !address.targetRef.namespace) return console.log("Missing address");
-    console.log(address);
-    const {body: pod} = await k8sApi.readNamespacedPod(address.targetRef.name, address.targetRef.namespace);
-    const ownerReference = pod.metadata?.ownerReferences && pod.metadata.ownerReferences[0];
-    if (!ownerReference) return console.log("Missing pod owner reference");
-    if (ownerReference.kind !== "ReplicaSet") return console.log("infrared-scaler only supports ReplicaSets for scaling for now.");
-    console.log(pod, ownerReference);
-    const {body: controller} = await appApi.readNamespacedReplicaSet(ownerReference.name, address.targetRef.namespace);
-    if (!controller.metadata?.ownerReferences || controller.metadata.ownerReferences[0].kind !== "StatefulSet") return console.log("Invalid replicaSet owner reference");
-    const statefulSet = controller.metadata.ownerReferences[0];
-    const replicas = controller.spec?.replicas;
-    console.log(statefulSet, replicas);
+    const statefulSet = statefulSetMap[linkedServer.service.metadata.name];
+    if (!statefulSet || !statefulSet.spec || !statefulSet.metadata || !statefulSet.metadata.name || !statefulSet.metadata.namespace) return console.log("Missing statefulSet");
+    const replicas = statefulSet.spec.replicas;
     if (replicas === 0) {
-      await appApi.patchNamespacedStatefulSetScale(statefulSet.name, controller.metadata.namespace!, [{op: "replace", path: "/spec/replicas", value: 1}]);
+      await appApi.patchNamespacedStatefulSetScale(statefulSet.metadata.name, statefulSet.metadata.namespace, [{op: "replace", path: "/spec/replicas", value: 1}]);
       console.log("Scaled up deployment");
     } else {
       console.log("No change");
