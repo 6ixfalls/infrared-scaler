@@ -53,7 +53,7 @@ async function updateService(obj: k8s.V1Service) {
     return; // No domain name, no need to process
   }
 
-  const configId = encodeURIComponent(`${configPath}${obj.metadata.name}-${obj.metadata.namespace}.yml`);
+  const configId = encodeURIComponent(`${config.configPath}${obj.metadata.name}-${obj.metadata.namespace}.yml`);
 
   const res = await fetch(`${config.infraredUrl}/configs/${configId}`, {
     method: "PUT",
