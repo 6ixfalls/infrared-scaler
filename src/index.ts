@@ -20,7 +20,7 @@ async function updateService(obj: k8s.V1Service) {
     console.error("No metadata or annotations found");
     return;
   }
-  if (!obj.spec || !obj.spec.clusterIP || !obj.spec.ports) {
+  if (!obj.spec || !obj.spec.ports) {
     console.error("No spec found");
     return;
   }
@@ -33,7 +33,7 @@ async function updateService(obj: k8s.V1Service) {
 
   const builtConfig = {
     domainName: obj.metadata.annotations[`${config.annotationPrefix}/domainName`],
-    proxyTo: `${obj.spec.clusterIP}:${targetPort.targetPort || targetPort.port}`,
+    proxyTo: `${obj.metadata.name}.${obj.metadata.namespace}:${targetPort.targetPort || targetPort.port}`,
     callbackServer: {
       url: `${config.serverUrl}/callback`,
       events: [
