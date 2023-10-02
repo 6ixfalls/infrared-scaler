@@ -49,7 +49,7 @@ async function updateService(obj: k8s.V1Service) {
   }
 
   if (!builtConfig.domainName) {
-    return; // No domain name, no need to process
+    return console.log(obj.metadata.annotations); // No domain name, no need to process
   }
 
   const configId = encodeURIComponent(`${obj.metadata.name}-${obj.metadata.namespace}`);
