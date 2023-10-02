@@ -38,12 +38,27 @@ async function updateService(obj: k8s.V1Service) {
     gateways: ["default"]
   }
 
+  const key = `${obj.metadata.name}-${obj.metadata.namespace}`;
+  const configId = encodeURIComponent(`${config.configPath}${key}.yml`);
+
   if (!domain) {
+    const res = await fetch(`${config.infraredUrl}/configs/${configId}`, {
+      method: "GET",
+    });
+    if (res.ok) {
+      const delRes = await fetch(`${config.infraredUrl}/configs/${configId}`, {
+        method: "DELETE",
+      });
+      if (!delRes.ok) {
+        console.error(`Failed to delete config for ${obj.metadata.name}: ${delRes.statusText}`);
+        return;
+      }
+    
+      console.log(`Deleted config for ${obj.metadata.name}`);
+    }
     return; // No domain name, no need to process
   }
 
-  const key = `${obj.metadata.name}-${obj.metadata.namespace}`;
-  const configId = encodeURIComponent(`${config.configPath}${key}.yml`);
   const bodyObject = {java: {servers: {}}};
   bodyObject.java.servers[key] = builtConfig;
   
