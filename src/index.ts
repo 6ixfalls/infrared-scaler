@@ -122,16 +122,15 @@ const app = new Elysia();
 
 app.post("/callback", async ({ request }) => {
   const message = JSON.parse(await request.text());
-  console.log(message, message.topics[0], message.isLoginRequest);
   if (message.topics[0] === "PrePlayerJoin") {
-    if (message.isLoginRequest !== true) return;
+    if (message.data.isLoginRequest !== true) return;
 
-    const status = <NewPingResult>await mc.ping(message.server.serverAddress);
+    const status = <NewPingResult>await mc.ping(message.data.server.serverAddress);
     if (status.version.protocol !== 0) {
       return; // already up
     }
 
-    const linkedServer = localServerMap[message.server.serverId];
+    const linkedServer = localServerMap[message.data.server.serverId];
     if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name || !linkedServer.service.metadata.namespace) {
       return console.log("Missing metadata");
     }
