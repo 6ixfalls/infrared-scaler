@@ -1,5 +1,5 @@
 import * as k8s from "@kubernetes/client-node";
-import mc, {NewPingResult} from "minecraft-protocol";
+import mc, { NewPingResult } from "minecraft-protocol";
 import { Elysia } from "elysia";
 
 const kc = new k8s.KubeConfig();
@@ -15,12 +15,12 @@ const config = {
   configPath: process.env.CONFIG_PATH || "/config/proxies/"
 }
 
-interface ServerConfig {domains: string[], address: string, gateways: string[], service?: k8s.V1Service};
+interface ServerConfig { domains: string[], address: string, gateways: string[], service?: k8s.V1Service };
 
 const informer = k8s.makeInformer(kc, "/api/v1/services", () => k8sApi.listNamespacedService(config.watchNamespace));
 const statefulSetInformer = k8s.makeInformer(kc, "/apis/apps/v1/statefulsets", () => appApi.listNamespacedStatefulSet(config.watchNamespace));
-const localServerMap: {[key: string]: ServerConfig} = {};
-const statefulSetMap: {[serviceName: string]: k8s.V1StatefulSet} = {};
+const localServerMap: { [key: string]: ServerConfig } = {};
+const statefulSetMap: { [serviceName: string]: k8s.V1StatefulSet } = {};
 
 async function updateService(obj: k8s.V1Service) {
   if (!obj.metadata || !obj.metadata.annotations) {
@@ -60,16 +60,16 @@ async function updateService(obj: k8s.V1Service) {
         console.error(`Failed to delete config for ${obj.metadata.name}: ${delRes.statusText}`);
         return;
       }
-    
+
       delete localServerMap[key];
       console.log(`Deleted config for ${obj.metadata.name}`);
     }
     return; // No domain name, no need to process
   }
 
-  const bodyObject: {java: {servers: {[key: string]: ServerConfig}}} = {java: {servers: {}}};
+  const bodyObject: { java: { servers: { [key: string]: ServerConfig } } } = { java: { servers: {} } };
   bodyObject.java.servers[key] = builtConfig;
-  
+
   const res = await fetch(`${config.infraredUrl}/configs/${configId}`, {
     method: "PUT",
     headers: {
@@ -127,7 +127,7 @@ function updateStatefulSet(statefulSet: k8s.V1StatefulSet) {
   statefulSetMap[statefulSet.spec.serviceName] = statefulSet;
 }
 
-statefulSetInformer.on("delete", function(statefulSet) {
+statefulSetInformer.on("delete", function (statefulSet) {
   if (!statefulSet.spec || !statefulSet.spec.serviceName) {
     return console.log("StatefulSet missing spec");
   }
@@ -153,13 +153,13 @@ app.post("/callback", async ({ request }) => {
     const message = JSON.parse(await request.text());
     if (message.topics[0] === "PrePlayerJoin") {
       if (message.data.isLoginRequest !== true) return;
-      
+
       //const status: NewPingResult = await mc.ping(message.data.server.serverAddress);
       //console.log(status);
       //if (status.version.protocol !== 0) {
       //  return; // already up
       //}
-  
+
       const linkedServer = localServerMap[message.data.server.serverId];
       if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name) return console.log("Missing metadata");
       const statefulSet = statefulSetMap[linkedServer.service.metadata.name];
@@ -167,7 +167,7 @@ app.post("/callback", async ({ request }) => {
       const replicas = statefulSet.spec.replicas;
       console.log(replicas);
       if (replicas === 0) {
-        await appApi.patchNamespacedStatefulSetScale(statefulSet.metadata.name, statefulSet.metadata.namespace, [{ op: 'replace', path: '/spec/replicas', value: 1 }], undefined, undefined, undefined, undefined, undefined, { headers: { 'Content-Type': 'application/json-patch+json' } });
+        await appApi.patchNamespacedStatefulSetScale(statefulSet.metadata.name, statefulSet.metadata.namespace, { spec: { replicas: 1 } }, undefined, undefined, undefined, undefined, undefined, { headers: { 'Content-Type': 'application/merge-patch+json', 'Accept': 'application/json, */*' } });
         console.log("Scaled up deployment");
       } else {
         console.log("No change");
