@@ -14,6 +14,7 @@ const config = {
 }
 
 const informer = k8s.makeInformer(kc, "/api/v1/services", () => k8sApi.listNamespacedService(config.watchNamespace));
+const localServerMap = {};
 
 async function updateService(obj: k8s.V1Service) {
   if (!obj.metadata || !obj.metadata.annotations) {
@@ -32,7 +33,7 @@ async function updateService(obj: k8s.V1Service) {
   }
 
   const domain = obj.metadata.annotations[`${config.annotationPrefix}/domainName`];
-  const builtConfig = {
+  const builtConfig: {domains: string[], address: string, gateways: string[], service?: k8s.V1Service} = {
     domains: [domain],
     address: `${obj.metadata.name}.${obj.metadata.namespace}:${targetPort.targetPort || targetPort.port}`,
     gateways: ["default"]
@@ -54,6 +55,7 @@ async function updateService(obj: k8s.V1Service) {
         return;
       }
     
+      delete localServerMap[key];
       console.log(`Deleted config for ${obj.metadata.name}`);
     }
     return; // No domain name, no need to process
@@ -75,6 +77,8 @@ async function updateService(obj: k8s.V1Service) {
     return;
   }
 
+  builtConfig.service = obj;
+  localServerMap[key] = builtConfig;
   console.log(`Updated config for ${obj.metadata.name}`);
 }
 
@@ -84,7 +88,8 @@ informer.on("delete", async (obj) => {
     console.error("No metadata or annotations found");
     return;
   }
-  const configId = encodeURIComponent(`${obj.metadata.name}-${obj.metadata.namespace}`);
+  const key = `${obj.metadata.name}-${obj.metadata.namespace}`;
+  const configId = encodeURIComponent(`${config.configPath}${key}.yml`);
 
   const res = await fetch(`${config.infraredUrl}/configs/${configId}`, {
     method: "DELETE",
@@ -95,6 +100,7 @@ informer.on("delete", async (obj) => {
     return;
   }
 
+  delete localServerMap[key];
   console.log(`Deleted config for ${obj.metadata.name}`);
 });
 
@@ -111,7 +117,10 @@ informer.on("error", (err) => {
 const app = new Elysia();
 
 app.post("/callback", async ({ request }) => {
-  console.log(await request.text());
+  const message = JSON.parse(await request.text());
+  if (message.topics[0] === "PrePlayerJoin") {
+    const linkedServer = localServerMap[message.server.serverId];
+  }
   return "ok";
 });
 
