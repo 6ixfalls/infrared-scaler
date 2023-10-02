@@ -135,14 +135,14 @@ app.post("/callback", async ({ request }) => {
     if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name || !linkedServer.service.metadata.namespace) {
       return console.log("Missing metadata");
     }
-    console.log(linkedServer);
+    console.log("checking endpoints " + linkedServer.service.metadata.name + linkedServer.service.metadata.namespace);
     const {body: endpoint} = await k8sApi.readNamespacedEndpoints(linkedServer.service.metadata.name, linkedServer.service.metadata.namespace);
-    console.log(endpoint);
     const subset = endpoint.subsets && endpoint.subsets[0];
+    console.log(subset);
     if (!subset) return console.log("Missing subsets");
     const address = subset.addresses && subset.addresses[0];
     if (!address || !address.targetRef || !address.targetRef.name || !address.targetRef.namespace) return console.log("Missing address");
-    console.log(subset, address);
+    console.log(address);
     const {body: pod} = await k8sApi.readNamespacedPod(address.targetRef.name, address.targetRef.namespace);
     const ownerReference = pod.metadata?.ownerReferences && pod.metadata.ownerReferences[0];
     if (!ownerReference) return console.log("Missing pod owner reference");
