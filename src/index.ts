@@ -1,9 +1,11 @@
 import * as k8s from "@kubernetes/client-node";
+import mc, {NewPingResult} from "minecraft-protocol";
 import { Elysia } from "elysia";
 
 const kc = new k8s.KubeConfig();
 kc.loadFromCluster();
 const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
+const appApi = kc.makeApiClient(k8s.AppsV1Api);
 
 const config = {
   watchNamespace: process.env.WATCH_NAMESPACE || "default",
@@ -13,8 +15,10 @@ const config = {
   configPath: process.env.CONFIG_PATH || "/config/proxies/"
 }
 
+interface ServerConfig {domains: string[], address: string, gateways: string[], service?: k8s.V1Service};
+
 const informer = k8s.makeInformer(kc, "/api/v1/services", () => k8sApi.listNamespacedService(config.watchNamespace));
-const localServerMap = {};
+const localServerMap: {[key: string]: ServerConfig} = {};
 
 async function updateService(obj: k8s.V1Service) {
   if (!obj.metadata || !obj.metadata.annotations) {
@@ -33,7 +37,7 @@ async function updateService(obj: k8s.V1Service) {
   }
 
   const domain = obj.metadata.annotations[`${config.annotationPrefix}/domainName`];
-  const builtConfig: {domains: string[], address: string, gateways: string[], service?: k8s.V1Service} = {
+  const builtConfig: ServerConfig = {
     domains: [domain],
     address: `${obj.metadata.name}.${obj.metadata.namespace}:${targetPort.targetPort || targetPort.port}`,
     gateways: ["default"]
@@ -61,7 +65,7 @@ async function updateService(obj: k8s.V1Service) {
     return; // No domain name, no need to process
   }
 
-  const bodyObject = {java: {servers: {}}};
+  const bodyObject: {java: {servers: {[key: string]: ServerConfig}}} = {java: {servers: {}}};
   bodyObject.java.servers[key] = builtConfig;
   
   const res = await fetch(`${config.infraredUrl}/configs/${configId}`, {
@@ -119,7 +123,36 @@ const app = new Elysia();
 app.post("/callback", async ({ request }) => {
   const message = JSON.parse(await request.text());
   if (message.topics[0] === "PrePlayerJoin") {
+    if (message.isLoginRequest !== true) return;
+
+    const status = <NewPingResult>await mc.ping(message.server.serverAddress);
+    if (status.version.protocol !== 0) {
+      return; // already up
+    }
+
     const linkedServer = localServerMap[message.server.serverId];
+    if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name || !linkedServer.service.metadata.namespace) {
+      return console.log("Missing metadata");
+    }
+    const {body: endpoint} = await k8sApi.readNamespacedEndpoints(linkedServer.service.metadata.name, linkedServer.service.metadata.namespace);
+    const subset = endpoint.subsets && endpoint.subsets[0];
+    if (!subset) return console.log("Missing subsets");
+    const address = subset.addresses && subset.addresses[0];
+    if (!address || !address.targetRef || !address.targetRef.name || !address.targetRef.namespace) return console.log("Missing address");
+    const {body: pod} = await k8sApi.readNamespacedPod(address.targetRef.name, address.targetRef.namespace);
+    const ownerReference = pod.metadata?.ownerReferences && pod.metadata.ownerReferences[0];
+    if (!ownerReference) return console.log("Missing pod owner reference");
+    if (ownerReference.kind !== "ReplicaSet") return console.log("infrared-scaler only supports ReplicaSets for scaling for now.");
+    const {body: controller} = await appApi.readNamespacedReplicaSet(ownerReference.name, address.targetRef.namespace);
+    if (!controller.metadata?.ownerReferences || controller.metadata.ownerReferences[0].kind !== "StatefulSet") return console.log("Invalid replicaSet owner reference");
+    const statefulSet = controller.metadata.ownerReferences[0];
+    const replicas = controller.spec?.replicas;
+    if (replicas === 0) {
+      await appApi.patchNamespacedStatefulSetScale(statefulSet.name, controller.metadata.namespace!, [{op: "replace", path: "/spec/replicas", value: 1}]);
+      console.log("Scaled up deployment");
+    } else {
+      console.log("No change");
+    }
   }
   return "ok";
 });
