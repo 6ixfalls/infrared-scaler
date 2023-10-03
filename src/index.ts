@@ -42,7 +42,16 @@ async function updateService(obj: k8s.V1Service) {
   const builtConfig: ServerConfig = {
     domains: [domain],
     address: `${obj.metadata.name}.${obj.metadata.namespace}:${targetPort.targetPort || targetPort.port}`,
-    gateways: ["default"]
+    gateways: ["default"],
+    dialTimeout: "1s",
+    dialTimeoutMessage: "§8Hello, §a{{username}}§8!\n§8The server you are trying to reach, §3§l{{requestedAddress}}§r§8, is currently unreachable.\n§7If the server is offline, the server is in maintenance or being started. Please try again in a minute.\n§8§lSponsored by §3§lsixfal.ls",
+    dialTimeoutStatus: {
+      versionName: "Unreachable",
+      protocolNumber: 0,
+      maxPlayerCount: 0,
+      playerCount: 0,
+      motd: "§8{{requestedAddress}} is unreachable.§r\n§c§lSponsored by §3§lsixfal.ls§r§c§l."
+    }
   }
 
   const statefulSet = statefulSetMap[obj.metadata.name];
