@@ -53,9 +53,9 @@ async function updateService(obj: k8s.V1Service) {
         protocolNumber: 0,
         maxPlayerCount: 0,
         playerCount: 0,
-        motd: "§8{{requestedAddress}} is starting.§r\n§c§lSponsored by §3§lsixfal.ls§r§c§l.";
+        motd: "§8{{requestedAddress}} is starting.§r\n§c§lSponsored by §3§lsixfal.ls§r§c§l."
       };
-      builtConfig.dialTimeoutMessage: "§8Hello, §a{{username}}§8!\n§8The server you are trying to reach, §3§l{{requestedAddress}}§r§8, is currently being started.\n§7Please try again in a minute.\n§8§lSponsored by §3§lsixfal.ls";
+      builtConfig.dialTimeoutMessage = "§8Hello, §a{{username}}§8!\n§8The server you are trying to reach, §3§l{{requestedAddress}}§r§8, is currently being started.\n§7Please try again in a minute.\n§8§lSponsored by §3§lsixfal.ls";
       builtConfig.dialTimeout = "0s";
     }
   }
