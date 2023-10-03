@@ -248,7 +248,7 @@ app.post("/callback", async ({ request }) => {
 setInterval(async () => {
   for (const serverId in playerMap) {
     const serverCount = playerMap[serverId];
-    if (serverCount.lastUpdate <= Date.now() - (1000 * 60 * 2)) { // no players for 2 minutes
+    if (serverCount.playerCount === 0 && serverCount.lastUpdate <= Date.now() - (1000 * 60 * 5)) { // no players for 5 minutes
       const linkedServer = localServerMap[serverId];
       if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name) return console.log("Missing metadata");
       const statefulSet = statefulSetMap[linkedServer.service.metadata.name];
