@@ -45,6 +45,19 @@ async function updateService(obj: k8s.V1Service) {
     gateways: ["default"]
   }
 
+  const statefulSet = statefulSetMap[obj.metadata.name];
+  if (statefulSet && statefulSet.status) {
+    if (statefulSet.spec.replicas && statefulSet.status.replicas && statefulSet.spec.replicas > statefulSet.status.replicas) {
+      builtConfig.overrideStatus = {
+        versionName: "Waking",
+        protocolNumber: 0,
+        maxPlayerCount: 0,
+        playerCount: 0,
+        motd: "§8{{requestedAddress}} is starting.§r\n§c§lSponsored by §3§lsixfal.ls§r§c§l.";
+      }
+    }
+  }
+
   const key = `${obj.metadata.name}-${obj.metadata.namespace}`;
   const configId = encodeURIComponent(`${config.configPath}${key}.yml`);
 
@@ -154,25 +167,18 @@ app.post("/callback", async ({ request }) => {
     if (message.topics[0] === "PrePlayerJoin") {
       if (message.data.isLoginRequest !== true) return;
 
-      //const status: NewPingResult = await mc.ping(message.data.server.serverAddress);
-      //console.log(status);
-      //if (status.version.protocol !== 0) {
-      //  return; // already up
-      //}
-
       const linkedServer = localServerMap[message.data.server.serverId];
       if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name) return console.log("Missing metadata");
       const statefulSet = statefulSetMap[linkedServer.service.metadata.name];
       if (!statefulSet || !statefulSet.spec || !statefulSet.metadata || !statefulSet.metadata.name || !statefulSet.metadata.namespace) return console.log("Missing statefulSet");
       const replicas = statefulSet.spec.replicas;
-      console.log(replicas);
       if (replicas === 0) {
         await appApi.patchNamespacedStatefulSetScale(statefulSet.metadata.name, statefulSet.metadata.namespace, { spec: { replicas: 1 } }, undefined, undefined, undefined, undefined, undefined, {
           headers: {
             'Content-Type': 'application/merge-patch+json',
             'Accept': 'application/json, */*',
           },
-        }).then(console.log).catch((e) => console.log("fail: ", e.statusCode, e.body));
+        });
         console.log("Scaled up deployment");
       } else {
         console.log("No change");
