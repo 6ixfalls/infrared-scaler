@@ -12,7 +12,13 @@ const config = {
   annotationPrefix: process.env.ANNOTATION_PREFIX || "infrared-scaler.sixfal.ls",
   infraredUrl: process.env.INFRARED_URL || "http://infrared:8080/v1",
   serverUrl: process.env.SCALER_URL || "http://infrared-scaler:3000",
-  configPath: process.env.CONFIG_PATH || "/config/proxies/"
+  configPath: process.env.CONFIG_PATH || "/config/proxies/",
+  offlineMessage: process.env.OFFLINE_MESSAGE || "§8Hello, §a{{username}}§8!\n§8The server you are trying to reach, §3§l{{requestedAddress}}§r§8, is currently unreachable.\n§7If the server is offline, the server is in maintenance or being started. Please try again in a minute.\n§8§lSponsored by §3§lsixfal.ls",
+  offlineMotd: process.env.OFFLINE_MOTD || "§8{{requestedAddress}} is unreachable.§r\n§c§lSponsored by §3§lsixfal.ls§r§c§l.",
+  wakingMessage: process.env.WAKING_MESSAGE || "§8Hello, §a{{username}}§8!\n§8The server you are trying to reach, §3§l{{requestedAddress}}§r§8, is currently being started.\n§7Please try again in a minute.\n§8§lSponsored by §3§lsixfal.ls",
+  wakingMotd: process.env.WAKING_MOTD || "§8{{requestedAddress}} is starting.§r\n§c§lSponsored by §3§lsixfal.ls§r§c§l.",
+  sleepingMessage: process.env.SLEEPING_MESSAGE || "§8Hello, §a{{username}}§8!\n§8The server you are trying to reach, §3§l{{requestedAddress}}§r§8, has been queued for a start.\n§7Please try again in a minute.\n§8§lSponsored by §3§lsixfal.ls",
+  sleepingMotd: process.env.SLEEPING_MOTD || "§8{{requestedAddress}} is asleep.§r\n§c§lSponsored by §3§lsixfal.ls§r§c§l.",
 }
 
 interface ServerConfig { domains: string[], address: string, gateways: string[], service?: k8s.V1Service, dialTimeoutStatus: { versionName: string, protocolNumber: number, maxPlayerCount: number, playerCount: number, motd: string; }, dialTimeoutMessage: string };
@@ -44,13 +50,13 @@ async function updateService(obj: k8s.V1Service) {
     domains: [domain],
     address: `${obj.metadata.name}.${obj.metadata.namespace}:${targetPort.targetPort || targetPort.port}`,
     gateways: ["default"],
-    dialTimeoutMessage: "§8Hello, §a{{username}}§8!\n§8The server you are trying to reach, §3§l{{requestedAddress}}§r§8, is currently unreachable.\n§7If the server is offline, the server is in maintenance or being started. Please try again in a minute.\n§8§lSponsored by §3§lsixfal.ls",
+    dialTimeoutMessage: config.offlineMessage,
     dialTimeoutStatus: {
       versionName: "Unreachable",
       protocolNumber: 0,
       maxPlayerCount: 0,
       playerCount: 0,
-      motd: "§8{{requestedAddress}} is unreachable.§r\n§c§lSponsored by §3§lsixfal.ls§r§c§l."
+      motd: config.offlineMotd,
     }
   }
 
@@ -62,18 +68,18 @@ async function updateService(obj: k8s.V1Service) {
         protocolNumber: 0,
         maxPlayerCount: 0,
         playerCount: 0,
-        motd: "§8{{requestedAddress}} is starting.§r\n§c§lSponsored by §3§lsixfal.ls§r§c§l."
+        motd: config.wakingMotd,
       };
-      builtConfig.dialTimeoutMessage = "§8Hello, §a{{username}}§8!\n§8The server you are trying to reach, §3§l{{requestedAddress}}§r§8, is currently being started.\n§7Please try again in a minute.\n§8§lSponsored by §3§lsixfal.ls";
+      builtConfig.dialTimeoutMessage = config.wakingMessage;
     } else if (statefulSet.spec.replicas === 0 && statefulSet.status.replicas === 0) {
       builtConfig.dialTimeoutStatus = {
         versionName: "Sleeping",
         protocolNumber: 0,
         maxPlayerCount: 0,
         playerCount: 0,
-        motd: "§8{{requestedAddress}} is asleep.§r\n§c§lSponsored by §3§lsixfal.ls§r§c§l."
+        motd: config.asleepMotd,
       };
-      builtConfig.dialTimeoutMessage = "§8Hello, §a{{username}}§8!\n§8The server you are trying to reach, §3§l{{requestedAddress}}§r§8, has been queued for a start.\n§7Please try again in a minute.\n§8§lSponsored by §3§lsixfal.ls";
+      builtConfig.dialTimeoutMessage = config.sleepingMotd;
     }
   } else {
     console.log("No statefulSet found");
@@ -162,7 +168,6 @@ function updateStatefulSet(statefulSet: k8s.V1StatefulSet) {
 
   const builtConfig = localServerMap[`${statefulSet.spec.serviceName}-${statefulSet.metadata.namespace}`];
   if (builtConfig && statefulSet.status && builtConfig.service) {
-    console.log(statefulSet.status);
     updateService(builtConfig.service);
   }
 }
