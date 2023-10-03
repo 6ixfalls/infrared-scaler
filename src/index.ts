@@ -47,6 +47,7 @@ async function updateService(obj: k8s.V1Service) {
 
   const statefulSet = statefulSetMap[obj.metadata.name];
   if (statefulSet && statefulSet.status) {
+    console.log(statefulSet.spec.replicas, statefulSet.status.replicas, statefulSet.spec.replicas > statefulSet.status.replicas, statefulSet.spec.replicas === 0, statefulSet.status.replicas === 0);
     if (statefulSet.spec.replicas && statefulSet.status.replicas && statefulSet.spec.replicas > statefulSet.status.replicas) {
       builtConfig.dialTimeoutStatus = {
         versionName: "Waking",
@@ -68,6 +69,8 @@ async function updateService(obj: k8s.V1Service) {
       builtConfig.dialTimeoutMessage = "§8Hello, §a{{username}}§8!\n§8The server you are trying to reach, §3§l{{requestedAddress}}§r§8, has been queued for a start.\n§7Please try again in a minute.\n§8§lSponsored by §3§lsixfal.ls";
       builtConfig.dialTimeout = "0s";
     }
+  } else {
+    console.log("No statefulSet found");
   }
 
   const key = `${obj.metadata.name}-${obj.metadata.namespace}`;
