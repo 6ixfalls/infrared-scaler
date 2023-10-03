@@ -1,15 +1,3 @@
-# Elysia with Bun runtime
+# infrared-scaler
 
-## Getting Started
-To get started with this template, simply paste this command into your terminal:
-```bash
-bun create elysia ./elysia-example
-```
-
-## Development
-To start the development server run:
-```bash
-bun run dev
-```
-
-Open http://localhost:3000/ with your browser to see the result.
+Container to be deployed with [haveachin/infrared](https://github.com/haveachin/infrared) with Kubernetes, to have proper Kubernetes config scanning like [itzg/mc-router](https://github.com/itzg/mc-router), as well as automatic scale up and downs depending on user activity.
