@@ -77,9 +77,9 @@ async function updateService(obj: k8s.V1Service) {
         protocolNumber: 0,
         maxPlayerCount: 0,
         playerCount: 0,
-        motd: config.asleepMotd,
+        motd: config.sleepingMotd,
       };
-      builtConfig.dialTimeoutMessage = config.sleepingMotd;
+      builtConfig.dialTimeoutMessage = config.sleepingMessage;
     }
   } else {
     console.log("No statefulSet found");
