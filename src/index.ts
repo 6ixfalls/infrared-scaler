@@ -15,7 +15,7 @@ const config = {
   configPath: process.env.CONFIG_PATH || "/config/proxies/"
 }
 
-interface ServerConfig { domains: string[], address: string, gateways: string[], service?: k8s.V1Service };
+interface ServerConfig { domains: string[], address: string, gateways: string[], service?: k8s.V1Service, dialTimeoutStatus: { versionName: string, protocolNumber: number, maxPlayerCount: number, playerCount: number, motd: string; } dialTimeoutMessage: string, dialTimeout: string };
 
 const informer = k8s.makeInformer(kc, "/api/v1/services", () => k8sApi.listNamespacedService(config.watchNamespace));
 const statefulSetInformer = k8s.makeInformer(kc, "/apis/apps/v1/statefulsets", () => appApi.listNamespacedStatefulSet(config.watchNamespace));
@@ -48,13 +48,15 @@ async function updateService(obj: k8s.V1Service) {
   const statefulSet = statefulSetMap[obj.metadata.name];
   if (statefulSet && statefulSet.status) {
     if (statefulSet.spec.replicas && statefulSet.status.replicas && statefulSet.spec.replicas > statefulSet.status.replicas) {
-      builtConfig.overrideStatus = {
+      builtConfig.dialTimeoutStatus = {
         versionName: "Waking",
         protocolNumber: 0,
         maxPlayerCount: 0,
         playerCount: 0,
         motd: "§8{{requestedAddress}} is starting.§r\n§c§lSponsored by §3§lsixfal.ls§r§c§l.";
-      }
+      };
+      builtConfig.dialTimeoutMessage: "§8Hello, §a{{username}}§8!\n§8The server you are trying to reach, §3§l{{requestedAddress}}§r§8, is currently being started.\n§7Please try again in a minute.\n§8§lSponsored by §3§lsixfal.ls";
+      builtConfig.dialTimeout = "0s";
     }
   }
 
