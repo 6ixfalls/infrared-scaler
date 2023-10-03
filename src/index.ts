@@ -15,12 +15,13 @@ const config = {
   configPath: process.env.CONFIG_PATH || "/config/proxies/"
 }
 
-interface ServerConfig { domains: string[], address: string, gateways: string[], service?: k8s.V1Service, dialTimeoutStatus: { versionName: string, protocolNumber: number, maxPlayerCount: number, playerCount: number, motd: string; }, dialTimeoutMessage: string, dialTimeout: string };
+interface ServerConfig { domains: string[], address: string, gateways: string[], service?: k8s.V1Service, dialTimeoutStatus: { versionName: string, protocolNumber: number, maxPlayerCount: number, playerCount: number, motd: string; }, dialTimeoutMessage: string };
 
 const informer = k8s.makeInformer(kc, "/api/v1/services", () => k8sApi.listNamespacedService(config.watchNamespace));
 const statefulSetInformer = k8s.makeInformer(kc, "/apis/apps/v1/statefulsets", () => appApi.listNamespacedStatefulSet(config.watchNamespace));
 const localServerMap: { [key: string]: ServerConfig } = {};
 const statefulSetMap: { [serviceName: string]: k8s.V1StatefulSet } = {};
+const playerMap: { [serverId: string]: { playerCount: number, lastUpdate: number } } = {};
 
 async function updateService(obj: k8s.V1Service) {
   if (!obj.metadata || !obj.metadata.annotations) {
@@ -53,9 +54,8 @@ async function updateService(obj: k8s.V1Service) {
     }
   }
 
-  const statefulSet = statefulSetMap[obj.metadata.name];
-  if (statefulSet && statefulSet.status) {
-    console.log(statefulSet.spec.replicas, statefulSet.status.replicas, statefulSet.spec.replicas > statefulSet.status.replicas, statefulSet.spec.replicas === 0, statefulSet.status.replicas === 0);
+  const statefulSet = statefulSetMap[obj.metadata.name!];
+  if (statefulSet && statefulSet.status && statefulSet.spec) {
     if (statefulSet.spec.replicas && statefulSet.status.replicas && statefulSet.spec.replicas > statefulSet.status.replicas) {
       builtConfig.dialTimeoutStatus = {
         versionName: "Waking",
@@ -161,7 +161,7 @@ function updateStatefulSet(statefulSet: k8s.V1StatefulSet) {
   statefulSetMap[statefulSet.spec.serviceName] = statefulSet;
 
   const builtConfig = localServerMap[`${statefulSet.spec.serviceName}-${statefulSet.metadata.namespace}`];
-  if (builtConfig && statefulSet.status) {
+  if (builtConfig && statefulSet.status && builtConfig.service) {
     console.log(statefulSet.status);
     updateService(builtConfig.service);
   }
@@ -185,6 +185,16 @@ statefulSetInformer.on("error", (err) => {
 });
 
 statefulSetInformer.start();
+
+const currentUpdate = Date.now();
+const firstPlayerResponse = await fetch(`${config.infraredUrl}/java/players`, { method: "GET" });
+await firstPlayerResponse.json().then((players: [{ username: number, serverId: number }]) => {
+  players.forEach((player) => {
+    if (!playerMap[player.serverId]) playerMap[player.serverId] = { playerCount: 0, lastUpdate: currentUpdate };
+    playerMap[player.serverId].playerCount++;
+    playerMap[player.serverId].lastUpdate = currentUpdate;
+  });
+});
 
 const app = new Elysia();
 
@@ -210,12 +220,50 @@ app.post("/callback", async ({ request }) => {
       } else {
         console.log("No change");
       }
+    } else if (message.topics[0] === "PlayerJoin") {
+      if (!playerMap[message.data.server.serverId]) playerMap[message.data.server.serverId] = { playerCount: 0, lastUpdate: currentUpdate };
+      playerMap[message.data.server.serverId].playerCount++;
+      playerMap[message.data.server.serverId].lastUpdate = currentUpdate;
+      console.log(`${message.data.client.username} joined ${message.data.server.serverId}: ${playerMap[message.data.server.serverId].playerCount} active players`);
+    } else if (message.topics[0] === "PlayerLeave") {
+      if (playerMap[message.data.server.serverId]) {
+        playerMap[message.data.server.serverId].playerCount--;
+        playerMap[message.data.server.serverId].lastUpdate = currentUpdate;
+        console.log(`${message.data.client.username} left ${message.data.server.serverId}: ${playerMap[message.data.server.serverId].playerCount} active players`);
+      } else {
+        console.log(`${message.data.client.username} left ${message.data.server.serverId}: Unknown players left`);
+      }
     }
   } catch (e) {
     console.error(e);
   }
   return "ok";
 });
+
+setInterval(async () => {
+  for (const serverId in playerMap) {
+    const serverCount = playerMap[serverId];
+    if (serverCount.lastUpdate <= Date.now() - (1000 * 60 * 2)) { // no players for 2 minutes
+      const linkedServer = localServerMap[serverId];
+      if (!linkedServer.service || !linkedServer.service.metadata || !linkedServer.service.metadata.name) return console.log("Missing metadata");
+      const statefulSet = statefulSetMap[linkedServer.service.metadata.name];
+      if (!statefulSet || !statefulSet.spec || !statefulSet.metadata || !statefulSet.metadata.name || !statefulSet.metadata.namespace) return console.log("Missing statefulSet");
+      const replicas = statefulSet.spec.replicas;
+      if (replicas !== 0) {
+        await appApi.patchNamespacedStatefulSetScale(statefulSet.metadata.name, statefulSet.metadata.namespace, { spec: { replicas: 0 } }, undefined, undefined, undefined, undefined, undefined, {
+          headers: {
+            'Content-Type': 'application/merge-patch+json',
+            'Accept': 'application/json, */*',
+          },
+        });
+        console.log("Scaled down deployment");
+      } else {
+        console.log("No change");
+      }
+      delete playerMap[serverId];
+    }
+  }
+}, 1000 * 30); // cleanup task every 30 seconds
 
 app.listen(3000);
 console.log(
