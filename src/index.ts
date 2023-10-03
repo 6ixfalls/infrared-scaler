@@ -15,7 +15,7 @@ const config = {
   configPath: process.env.CONFIG_PATH || "/config/proxies/"
 }
 
-interface ServerConfig { domains: string[], address: string, gateways: string[], service?: k8s.V1Service, dialTimeoutStatus: { versionName: string, protocolNumber: number, maxPlayerCount: number, playerCount: number, motd: string; } dialTimeoutMessage: string, dialTimeout: string };
+interface ServerConfig { domains: string[], address: string, gateways: string[], service?: k8s.V1Service, dialTimeoutStatus: { versionName: string, protocolNumber: number, maxPlayerCount: number, playerCount: number, motd: string; }, dialTimeoutMessage: string, dialTimeout: string };
 
 const informer = k8s.makeInformer(kc, "/api/v1/services", () => k8sApi.listNamespacedService(config.watchNamespace));
 const statefulSetInformer = k8s.makeInformer(kc, "/apis/apps/v1/statefulsets", () => appApi.listNamespacedStatefulSet(config.watchNamespace));
