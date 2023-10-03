@@ -136,10 +136,15 @@ informer.on("error", (err) => {
 });
 
 function updateStatefulSet(statefulSet: k8s.V1StatefulSet) {
-  if (!statefulSet.spec || !statefulSet.spec.serviceName) {
+  if (!statefulSet.spec || !statefulSet.spec.serviceName || !statefulSet.metadata || !statefulSet.metadata.namespace) {
     return console.log("StatefulSet missing spec");
   }
   statefulSetMap[statefulSet.spec.serviceName] = statefulSet;
+
+  const builtConfig = localServerMap[`${statefulSet.spec.serviceName}-${statefulSet.metadata.namespace}`];
+  if (builtConfig && statefulSet.status) {
+    updateService(builtConfig.service);
+  }
 }
 
 statefulSetInformer.on("delete", function (statefulSet) {
